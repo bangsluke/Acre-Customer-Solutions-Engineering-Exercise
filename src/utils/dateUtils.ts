@@ -1,4 +1,4 @@
-import { endOfMonth, endOfQuarter, endOfYear, format, isValid, parse, parseISO, startOfMonth, startOfQuarter, startOfYear, subMonths, subQuarters } from 'date-fns';
+import { differenceInCalendarDays, endOfMonth, endOfQuarter, endOfYear, format, isValid, parse, parseISO, startOfMonth, startOfQuarter, startOfYear, subDays, subMonths, subQuarters, subYears } from 'date-fns';
 import type { TimePeriod } from '../types/mortgage';
 
 const BASE_YEAR = 2025;
@@ -56,6 +56,24 @@ export function resolvePeriodBounds(period: TimePeriod, now = new Date(BASE_YEAR
 }
 
 export function priorPeriod(period: TimePeriod, now = new Date(BASE_YEAR, 11, 31)): TimePeriod | null {
+  if (period.type === 'this_year') {
+    const prev = subYears(now, 1);
+    return { type: 'custom', start: startOfYear(prev), end: endOfYear(prev) };
+  }
+  if (period.type === 'this_half') {
+    if (now.getMonth() < 6) {
+      return {
+        type: 'custom',
+        start: new Date(now.getFullYear() - 1, 6, 1),
+        end: new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59),
+      };
+    }
+    return {
+      type: 'custom',
+      start: new Date(now.getFullYear(), 0, 1),
+      end: new Date(now.getFullYear(), 5, 30, 23, 59, 59),
+    };
+  }
   if (period.type === 'this_month') {
     const prev = subMonths(now, 1);
     return { type: 'custom', start: startOfMonth(prev), end: endOfMonth(prev) };
@@ -64,10 +82,26 @@ export function priorPeriod(period: TimePeriod, now = new Date(BASE_YEAR, 11, 31
     const prev = subQuarters(now, 1);
     return { type: 'custom', start: startOfQuarter(prev), end: endOfQuarter(prev) };
   }
+  if (period.type === 'custom' && period.start && period.end) {
+    const span = Math.max(1, differenceInCalendarDays(period.end, period.start) + 1);
+    const prevEnd = subDays(period.start, 1);
+    const prevStart = subDays(prevEnd, span - 1);
+    return { type: 'custom', start: prevStart, end: prevEnd };
+  }
   return null;
 }
 
 export function monthLabel(date: Date): string {
   return format(date, 'MMM');
+}
+
+export function monthLabelFromKey(monthKey: string): string {
+  const [yearText, monthText] = monthKey.split('-');
+  const year = Number(yearText);
+  const month = Number(monthText);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) {
+    return monthKey;
+  }
+  return monthLabel(new Date(year, month - 1, 1));
 }
 

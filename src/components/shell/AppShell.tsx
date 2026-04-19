@@ -1,14 +1,13 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { useDataContext } from '../../context/useDataContext';
+import { evaluateLenderInsights } from '../../utils/lenderInsights';
+import { computeTypicalLifecycleDays } from '../../utils/funnelMetrics';
 import { TimeFilter } from '../shared/TimeFilter';
+import { LastUpdatedFooter } from '../shared/LastUpdatedFooter';
 import { ViewTabs } from './ViewTabs';
-import type { MortgageCase } from '../../types/mortgage';
 
 const InternalDashboard = lazy(() =>
   import('../internal/InternalDashboard').then((module) => ({ default: module.InternalDashboard })),
-);
-const InternalPipelineTab = lazy(() =>
-  import('../internal/InternalPipelineTab').then((module) => ({ default: module.InternalPipelineTab })),
 );
 const InternalLenderShareTab = lazy(() =>
   import('../internal/InternalLenderShareTab').then((module) => ({ default: module.InternalLenderShareTab })),
@@ -18,6 +17,12 @@ const InternalRiskLtvTab = lazy(() =>
 );
 const InternalTrendsTab = lazy(() =>
   import('../internal/InternalTrendsTab').then((module) => ({ default: module.InternalTrendsTab })),
+);
+const InternalProductAnalysisTab = lazy(() =>
+  import('../internal/InternalProductAnalysisTab').then((module) => ({ default: module.InternalProductAnalysisTab })),
+);
+const InternalDataQualityTab = lazy(() =>
+  import('../internal/InternalDataQualityTab').then((module) => ({ default: module.InternalDataQualityTab })),
 );
 const LenderDashboard = lazy(() =>
   import('../lender/LenderDashboard').then((module) => ({ default: module.LenderDashboard })),
@@ -34,10 +39,11 @@ const LenderInsightsTab = lazy(() =>
 
 const INTERNAL_TABS: Array<{ id: string; label: string; badge?: string }> = [
   { id: 'overview', label: 'Overview' },
-  { id: 'pipeline', label: 'Pipeline' },
+  { id: 'product-analysis', label: 'Product Analysis' },
   { id: 'lender-share', label: 'Lender share' },
   { id: 'risk-ltv', label: 'Risk and LTV' },
   { id: 'trends', label: 'Trends' },
+  { id: 'data-quality', label: 'Data Quality' },
 ];
 
 const LENDER_TABS: Array<{ id: string; label: string; badge?: string }> = [
@@ -47,7 +53,7 @@ const LENDER_TABS: Array<{ id: string; label: string; badge?: string }> = [
   { id: 'insights', label: 'Insights' },
 ];
 
-type InternalTabId = 'overview' | 'pipeline' | 'lender-share' | 'risk-ltv' | 'trends';
+type InternalTabId = 'overview' | 'product-analysis' | 'lender-share' | 'risk-ltv' | 'trends' | 'data-quality';
 type LenderTabId = 'overview' | 'performance' | 'pipeline' | 'insights';
 
 function TabContentFallback() {
@@ -58,60 +64,12 @@ function TabContentFallback() {
   );
 }
 
-function insightAlertCount(periodData: MortgageCase[], selectedLender: string, marketAvgDaysToOffer: number, marketStalledRate: number) {
-  const lenderRows = periodData.filter((row) => row.lender === selectedLender);
-  if (!lenderRows.length) {
-    return 0;
-  }
-  const now = new Date(2025, 11, 31);
-  const submitted = lenderRows.filter((row) => row.caseStatus === 'APPLICATION_SUBMITTED');
-  const stalled = submitted.filter((row) => {
-    const start = row.lastSubmittedDate ?? row.firstSubmittedDate;
-    if (!start) {
-      return false;
-    }
-    const days = Math.max(0, Math.round((now.getTime() - start.getTime()) / 86_400_000));
-    return days > marketAvgDaysToOffer;
-  });
-  const lenderStalledRate = submitted.length ? stalled.length / submitted.length : 0;
-
-  const lenderOfferSamples = lenderRows
-    .map((row) => {
-      if (!row.firstSubmittedDate || !row.firstOfferDate) {
-        return null;
-      }
-      return Math.max(0, Math.round((row.firstOfferDate.getTime() - row.firstSubmittedDate.getTime()) / 86_400_000));
-    })
-    .filter((value): value is number => value !== null);
-  const lenderAvgOfferDays = lenderOfferSamples.length
-    ? lenderOfferSamples.reduce((sum, value) => sum + value, 0) / lenderOfferSamples.length
-    : 0;
-
-  const lenderValidLtv = lenderRows
-    .map((row) => row.ltv)
-    .filter((value): value is number => value !== null && value >= 0 && value <= 1.5);
-  const marketValidLtv = periodData
-    .map((row) => row.ltv)
-    .filter((value): value is number => value !== null && value >= 0 && value <= 1.5);
-  const lenderHighLtv = lenderValidLtv.length
-    ? lenderValidLtv.filter((value) => value >= 0.85).length / lenderValidLtv.length
-    : 0;
-  const marketHighLtv = marketValidLtv.length
-    ? marketValidLtv.filter((value) => value >= 0.85).length / marketValidLtv.length
-    : 0;
-
-  let alerts = 0;
-  if (lenderStalledRate > marketStalledRate * 1.5) alerts += 1;
-  if (lenderAvgOfferDays > marketAvgDaysToOffer) alerts += 1;
-  if (lenderHighLtv > marketHighLtv + 0.05) alerts += 1;
-  return alerts;
-}
-
 export function AppShell() {
   const [activeView, setActiveView] = useState<'internal' | 'lender'>('internal');
   const [internalTab, setInternalTab] = useState<InternalTabId>('overview');
   const [lenderTab, setLenderTab] = useState<LenderTabId>('overview');
-  const { status, progress, error, activePeriod, setActivePeriod, periodModel, selectedLender, setSelectedLender } = useDataContext();
+  const [showTimeFilters, setShowTimeFilters] = useState(true);
+  const { status, progress, error, activePeriod, setActivePeriod, periodModel, allRows, selectedLender, setSelectedLender } = useDataContext();
 
   const lenderNames = periodModel?.lenderStats
     ? [...periodModel.lenderStats.keys()].sort((a, b) => a.localeCompare(b))
@@ -123,18 +81,18 @@ export function AppShell() {
       if (!periodModel) {
         return 0;
       }
-      return insightAlertCount(
+      return evaluateLenderInsights(
         periodModel.periodData,
         selectedLender,
-        periodModel.marketStats.avgDaysToOffer,
-        periodModel.marketStats.stalledSubmittedRate,
-      );
+        periodModel.marketStats,
+      ).alertMessages.length;
     },
     [periodModel, selectedLender],
   );
   const lenderTabsWithBadge = LENDER_TABS.map((tab) =>
-    tab.id === 'insights' && alerts > 0 ? { ...tab, badge: `${alerts} alerts` } : tab,
+    tab.id === 'insights' && alerts > 0 ? { ...tab, badge: `${alerts} ${alerts === 1 ? 'alert' : 'alerts'}` } : tab,
   );
+  const typicalLifecycleDays = useMemo(() => computeTypicalLifecycleDays(allRows), [allRows]);
   const subTabs = activeView === 'internal' ? INTERNAL_TABS : lenderTabsWithBadge;
   const activeSubTab = activeView === 'internal' ? internalTab : lenderTab;
 
@@ -188,78 +146,115 @@ export function AppShell() {
         </aside>
 
         <div className="p-6 desktop-md:p-8">
-          <div className="border-b border-acre-border pb-3">
-            <nav className="flex flex-wrap items-center gap-6 text-lg text-acre-muted" role="tablist" aria-label={`${activeView} dashboard sections`}>
-              <span className="font-semibold text-acre-text" aria-hidden="true">
-                {activeView === 'internal' ? 'Internal' : 'Lender'}
-              </span>
-              {subTabs.map((tab) => (
+          <div className="relative sticky top-6 z-20 bg-[#FCFCFB] pb-3 desktop-md:top-8">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -top-6 left-0 right-0 h-6 bg-[#FCFCFB] desktop-md:-top-8 desktop-md:h-8"
+            />
+            <div className="border-b border-acre-border pb-3">
+              <nav className="flex flex-wrap items-end justify-between gap-4 text-lg text-acre-muted" role="tablist" aria-label={`${activeView} dashboard sections`}>
+                <div className="flex flex-wrap items-center gap-6">
+                  <span className="inline-flex items-center gap-2 pb-2 text-lg font-semibold text-acre-text" aria-hidden="true">
+                    <img src="/favicon.svg" alt="" className="h-5 w-5 object-contain" />
+                    {activeView === 'internal' ? 'Internal' : 'Lender'}
+                  </span>
+                  {subTabs.map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={tab.id === activeSubTab}
+                      onClick={() => {
+                        if (activeView === 'internal') {
+                          setInternalTab(tab.id as InternalTabId);
+                        } else {
+                          setLenderTab(tab.id as LenderTabId);
+                        }
+                      }}
+                      className={`pb-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acre-purple ${
+                        tab.id === activeSubTab ? 'border-b-2 border-acre-purple text-acre-purple' : ''
+                      }`}
+                    >
+                      <span>{tab.label}</span>
+                      {tab.badge ? (
+                        <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-900">{tab.badge}</span>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
                 <button
-                  key={tab.id}
                   type="button"
-                  role="tab"
-                  aria-selected={tab.id === activeSubTab}
-                  onClick={() => {
-                    if (activeView === 'internal') {
-                      setInternalTab(tab.id as InternalTabId);
-                    } else {
-                      setLenderTab(tab.id as LenderTabId);
-                    }
-                  }}
-                  className={`pb-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acre-purple ${
-                    tab.id === activeSubTab ? 'border-b-2 border-acre-purple text-acre-purple' : ''
-                  }`}
+                  onClick={() => setShowTimeFilters((current) => !current)}
+                  aria-expanded={showTimeFilters}
+                  aria-controls="time-filter-row"
+                  className="inline-flex h-[30px] items-center rounded-md border border-acre-border bg-white px-3 text-xs font-medium text-acre-text transition hover:border-acre-purple-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acre-purple"
                 >
-                  <span>{tab.label}</span>
-                  {tab.badge ? (
-                    <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700">{tab.badge}</span>
-                  ) : null}
+                  {showTimeFilters ? 'Hide time frame' : 'Show time frame'}
                 </button>
-              ))}
-            </nav>
+              </nav>
+            </div>
+            <div id="time-filter-row" className={showTimeFilters ? 'block' : 'hidden'}>
+              <TimeFilter activePeriod={activePeriod} onChange={setActivePeriod} />
+            </div>
           </div>
-
-          <TimeFilter activePeriod={activePeriod} onChange={setActivePeriod} />
 
           <Suspense fallback={<TabContentFallback />}>
             {activeView === 'internal' ? (
               internalTab === 'overview' ? (
-                <InternalDashboard stats={periodModel.marketStats} />
-              ) : internalTab === 'pipeline' ? (
-                <InternalPipelineTab stats={periodModel.marketStats} periodData={periodModel.periodData} />
+                <InternalDashboard
+                  stats={periodModel.marketStats}
+                  period={activePeriod}
+                  periodData={periodModel.periodData}
+                  allRows={allRows}
+                  typicalLifecycleDays={typicalLifecycleDays}
+                />
+              ) : internalTab === 'product-analysis' ? (
+                <InternalProductAnalysisTab periodData={periodModel.periodData} period={activePeriod} />
               ) : internalTab === 'lender-share' ? (
-                <InternalLenderShareTab periodData={periodModel.periodData} />
+                <InternalLenderShareTab periodData={periodModel.periodData} period={activePeriod} />
               ) : internalTab === 'risk-ltv' ? (
-                <InternalRiskLtvTab periodData={periodModel.periodData} quality={periodModel.quality} />
+                <InternalRiskLtvTab periodData={periodModel.periodData} period={activePeriod} allRows={allRows} />
+              ) : internalTab === 'trends' ? (
+                <InternalTrendsTab periodData={periodModel.periodData} period={activePeriod} allRows={allRows} />
               ) : (
-                <InternalTrendsTab periodData={periodModel.periodData} />
+                <InternalDataQualityTab periodData={periodModel.periodData} quality={periodModel.quality} period={activePeriod} />
               )
             ) : lenderTab === 'overview' ? (
               <LenderDashboard
                 selectedLender={selectedLender}
                 stats={lenderStats}
                 marketStats={periodModel.marketStats}
+                periodData={periodModel.periodData}
+                period={activePeriod}
+                typicalLifecycleDays={typicalLifecycleDays}
               />
             ) : lenderTab === 'performance' ? (
               <LenderPerformanceTab
                 periodData={periodModel.periodData}
                 selectedLender={selectedLender}
                 marketStats={periodModel.marketStats}
+                period={activePeriod}
+                allRows={allRows}
               />
             ) : lenderTab === 'pipeline' ? (
               <LenderPipelineTab
                 periodData={periodModel.periodData}
                 selectedLender={selectedLender}
                 marketStats={periodModel.marketStats}
+                period={activePeriod}
+                typicalLifecycleDays={typicalLifecycleDays}
               />
             ) : (
               <LenderInsightsTab
                 periodData={periodModel.periodData}
+                allRows={allRows}
                 selectedLender={selectedLender}
                 marketStats={periodModel.marketStats}
+                period={activePeriod}
               />
             )}
           </Suspense>
+          <LastUpdatedFooter />
         </div>
       </div>
     </main>

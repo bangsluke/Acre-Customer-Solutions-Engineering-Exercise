@@ -5,9 +5,9 @@ export default {
     extend: {
       colors: {
         acre: {
-          purple: '#6C5CE7',
-          'purple-light': '#A29BFE',
-          'purple-bg': '#EEEDFE',
+          purple: '#3D4CF9',
+          'purple-light': '#5B68FA',
+          'purple-bg': '#EEF0FF',
           panel: '#F7F7F4',
           border: '#E7E7E3',
           text: '#22232A',

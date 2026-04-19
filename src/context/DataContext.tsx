@@ -11,6 +11,7 @@ interface DataContextValue {
   activePeriod: TimePeriod;
   setActivePeriod: (period: TimePeriod) => void;
   periodModel: PeriodModel | null;
+  allRows: PeriodModel['periodData'];
   selectedLender: string;
   setSelectedLender: (lender: string) => void;
   error: string | null;
@@ -25,6 +26,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     activePeriod,
     setActivePeriod,
     periodModel,
+    allRows,
     error,
   } = useDataLoader(getCsvUrl(), DEFAULT_PERIOD);
 
@@ -46,6 +48,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     activePeriod,
     setActivePeriod,
     periodModel,
+    allRows,
     selectedLender,
     setSelectedLender,
     error,

@@ -11,6 +11,7 @@ interface UseDataLoaderResult {
   activePeriod: TimePeriod;
   setActivePeriod: (period: TimePeriod) => void;
   periodModel: PeriodModel | null;
+  allRows: PeriodModel['periodData'];
   error: string | null;
 }
 
@@ -123,6 +124,7 @@ export function useDataLoader(csvUrl: string, initialPeriod: TimePeriod): UseDat
     activePeriod,
     setActivePeriod,
     periodModel,
+    allRows: dataset,
     error,
   };
 }

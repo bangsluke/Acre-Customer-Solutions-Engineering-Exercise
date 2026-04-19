@@ -1,18 +1,30 @@
 import Papa from 'papaparse';
 import type { MortgageCase, ParseQualityReport } from '../types/mortgage';
+import { RAW_CASE_STATUSES } from './constants';
 import { parseDateForColumn } from './dateUtils';
 
 type ParseProgress = (value: number) => void;
 
-const CASE_TYPES = new Set(['REASON_FTB', 'REASON_REMORTGAGE', 'REASON_HOUSE_MOVE', 'REASON_BTL', 'REASON_OTHER']);
-const CASE_STATUSES = new Set([
-  'LEAD',
-  'PRE_RECOMMENDATION',
-  'APPLICATION_SUBMITTED',
-  'OFFER_RECEIVED',
-  'COMPLETE',
-  'NOT_PROCEEDING',
-]);
+const CASE_STATUSES = new Set(RAW_CASE_STATUSES);
+const CASE_TYPE_NORMALIZATION_MAP: Record<string, MortgageCase['caseType']> = {
+  REASON_FTB: 'REASON_FTB',
+  REASON_REMORTGAGE: 'REASON_REMORTGAGE',
+  REASON_HOUSE_MOVE: 'REASON_HOUSE_MOVE',
+  REASON_BTL: 'REASON_BTL',
+  REASON_OTHER: 'REASON_OTHER',
+  REASON_BTL_REMORTGAGE: 'REASON_BTL_REMORTGAGE',
+  REASON_BUY_TO_LET_REMORTGAGE: 'REASON_BTL_REMORTGAGE',
+  BUY_TO_LET_REMORTGAGE: 'REASON_BTL_REMORTGAGE',
+  BTL_REMORTGAGE: 'REASON_BTL_REMORTGAGE',
+  REASON_EQUITY_RELEASE: 'REASON_EQUITY_RELEASE',
+  EQUITY_RELEASE: 'REASON_EQUITY_RELEASE',
+  REASON_BRIDGING: 'REASON_BRIDGING',
+  BRIDGING: 'REASON_BRIDGING',
+  REASON_INVALID_MORTGAGE_REASON: 'REASON_INVALID_MORTGAGE_REASON',
+  INVALID_MORTGAGE_REASON: 'REASON_INVALID_MORTGAGE_REASON',
+  REASON_COMMERCIAL: 'REASON_COMMERCIAL',
+  COMMERCIAL: 'REASON_COMMERCIAL',
+};
 
 function toNumber(raw: string): number | null {
   if (!raw) {
@@ -28,33 +40,80 @@ function toMoneyPounds(raw: string): number | null {
 }
 
 function toBool(raw: string): boolean {
-  return raw === 't';
+  return raw === 't' || raw === 'true' || raw === '1';
 }
 
-export function parseRow(row: Record<string, string>): MortgageCase {
-  const caseType = (CASE_TYPES.has(row.case_type) ? row.case_type : 'UNKNOWN') as MortgageCase['caseType'];
-  const caseStatus = (CASE_STATUSES.has(row.case_status) ? row.case_status : 'LEAD') as MortgageCase['caseStatus'];
+function normaliseInitialRateType(raw: string): MortgageCase['initialRateType'] {
+  const normalized = (raw ?? '').trim().toUpperCase();
+  if (!normalized) {
+    return 'unknown';
+  }
+  if (normalized.includes('FIXED')) {
+    return 'fixed';
+  }
+  if (normalized.includes('TRACKER')) {
+    return 'tracker';
+  }
+  if (normalized.includes('DISCOUNT')) {
+    return 'discount';
+  }
+  if (normalized.includes('VARIABLE')) {
+    return 'variable';
+  }
+  if (normalized.includes('STEPPED')) {
+    return 'stepped';
+  }
+  return 'other';
+}
+
+function normaliseTermUnit(raw: string): MortgageCase['termUnit'] {
+  const normalized = (raw ?? '').trim().toUpperCase();
+  if (normalized === 'TERM_MONTHS' || normalized === 'TERM_YEARS') {
+    return normalized;
+  }
+  return 'UNKNOWN';
+}
+
+export function parseRow(row: Record<string, string> | null | undefined): MortgageCase {
+  const safeRow = row ?? {};
+  const normalizedCaseType = (safeRow.case_type ?? '').trim().toUpperCase().replaceAll('-', '_').replaceAll(' ', '_');
+  const caseType = CASE_TYPE_NORMALIZATION_MAP[normalizedCaseType] ?? 'UNKNOWN';
+  const normalisedStatus = (safeRow.case_status ?? '').trim().toUpperCase();
+  const caseStatus = (CASE_STATUSES.has(normalisedStatus as MortgageCase['caseStatus']) ? normalisedStatus : 'LEAD') as MortgageCase['caseStatus'];
   return {
-    caseId: row.case_id,
-    lender: row.lender || 'Unknown lender',
-    lenderId: row.lender_id || 'unknown',
-    prevLender: row.prev_lender || null,
+    caseId: safeRow.case_id ?? '',
+    lender: safeRow.lender || 'Blank lender',
+    lenderId: safeRow.lender_id || 'blank',
+    prevLender: safeRow.prev_lender || null,
     caseType,
     caseStatus,
-    notProceedingReason: row.not_proceeding_reason || null,
-    createdAt: parseDateForColumn('created_at', row.created_at),
-    firstSubmittedDate: parseDateForColumn('first_submitted_date', row.first_submitted_date),
-    lastSubmittedDate: parseDateForColumn('last_submitted_date', row.last_submitted_date),
-    firstOfferDate: parseDateForColumn('first_offer_date', row.first_offer_date),
-    completionDate: parseDateForColumn('completion_date', row.completion_date),
-    mortgageAmount: toMoneyPounds(row.mortgage_amount),
-    propertyValue: toMoneyPounds(row.property_value),
-    ltv: toNumber(row.ltv),
-    linkedProtection: toBool(row.linked_protection),
-    totalBrokerFees: toMoneyPounds(row.total_broker_fees),
-    grossMortgageProcFee: toMoneyPounds(row.gross_mortgage_proc_fee),
-    totalCaseRevenue: toMoneyPounds(row.total_case_revenue),
-    initialPayRate: toNumber(row.initial_pay_rate) === null ? null : (toNumber(row.initial_pay_rate) ?? 0) / 100_000,
+    notProceedingReason: safeRow.not_proceeding_reason || null,
+    notProceedingDate: parseDateForColumn('not_proceeding_date', safeRow.not_proceeding_date),
+    createdAt: parseDateForColumn('created_at', safeRow.created_at),
+    recommendationDate: parseDateForColumn('recommendation_date', safeRow.recommendation_date),
+    firstSubmittedDate: parseDateForColumn('first_submitted_date', safeRow.first_submitted_date),
+    lastSubmittedDate: parseDateForColumn('last_submitted_date', safeRow.last_submitted_date),
+    firstOfferDate: parseDateForColumn('first_offer_date', safeRow.first_offer_date),
+    completionDate: parseDateForColumn('completion_date', safeRow.completion_date),
+    mortgageAmount: toMoneyPounds(safeRow.mortgage_amount),
+    propertyValue: toMoneyPounds(safeRow.property_value),
+    ltv: toNumber(safeRow.ltv),
+    linkedProtection: toBool(safeRow.linked_protection),
+    totalBrokerFees: toMoneyPounds(safeRow.total_broker_fees),
+    grossMortgageProcFee: toMoneyPounds(safeRow.gross_mortgage_proc_fee),
+    totalCaseRevenue: toMoneyPounds(safeRow.total_case_revenue),
+    netCaseRevenue: toMoneyPounds(safeRow.net_case_revenue),
+    initialPayRate: toNumber(safeRow.initial_pay_rate) === null ? null : (toNumber(safeRow.initial_pay_rate) ?? 0) / 10_000_000,
+    initialRateType: normaliseInitialRateType(safeRow.initial_rate_type),
+    initialRateTypeRaw: safeRow.initial_rate_type?.trim() ? safeRow.initial_rate_type.trim().toUpperCase() : null,
+    term: toNumber(safeRow.term),
+    termUnit: normaliseTermUnit(safeRow.term_unit),
+    regulated: toBool(safeRow.regulated),
+    consumerBtl: toBool(safeRow.consumer_btl),
+    furtherAdvance: toBool(safeRow.further_advance),
+    pt: toBool(safeRow.pt),
+    porting: toBool(safeRow.porting),
+    clubName: safeRow.club_name?.trim() ? safeRow.club_name.trim() : null,
   };
 }
 
@@ -70,6 +129,13 @@ export function qualityReport(data: MortgageCase[], failures: Record<string, num
     degradedColumns,
     criticalFailure,
   };
+}
+
+function shouldRetryWithoutWorker(rows: MortgageCase[], quality: ParseQualityReport): boolean {
+  const rowCount = Math.max(rows.length, 1);
+  const createdAtFailures = quality.dateParseFailures.created_at ?? 0;
+  // Worker parsing can degrade large CSVs in some browser/build combinations.
+  return createdAtFailures / rowCount > 0.01;
 }
 
 export async function parseMortgageCsv(url: string, onProgress: ParseProgress): Promise<{ rows: MortgageCase[]; quality: ParseQualityReport }> {
@@ -91,9 +157,13 @@ export async function parseMortgageCsv(url: string, onProgress: ParseProgress): 
         if (processedRows % 5_000 === 0) {
           onProgress(Math.min(99, Math.round(processedRows / 3_132)));
         }
+        if (!result.data || typeof result.data !== 'object') {
+          return;
+        }
         const parsed = parseRow(result.data);
         const dateColumns: Array<keyof MortgageCase> = [
           'createdAt',
+          'recommendationDate',
           'firstSubmittedDate',
           'lastSubmittedDate',
           'firstOfferDate',
@@ -117,14 +187,11 @@ export async function parseMortgageCsv(url: string, onProgress: ParseProgress): 
   });
   };
 
-  try {
-    return await parseWithConfig(true);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (message.toLowerCase().includes('invalid url')) {
-      return parseWithConfig(false);
-    }
-    throw error;
+  const nonWorkerResult = await parseWithConfig(false);
+  if (shouldRetryWithoutWorker(nonWorkerResult.rows, nonWorkerResult.quality)) {
+    // Keep a defensive fallback path in case browser parsing behaviour changes.
+    return parseWithConfig(true);
   }
+  return nonWorkerResult;
 }
 

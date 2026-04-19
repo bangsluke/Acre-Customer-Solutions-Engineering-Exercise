@@ -1,15 +1,24 @@
 import { differenceInCalendarDays, format, isWithinInterval } from 'date-fns';
 import type {
-  CaseStatus,
   DistributionBucket,
   LenderStats,
   MarketStats,
   MortgageCase,
+  PipelineStage,
   PeriodModel,
   PipelineRow,
   TimePeriod,
 } from '../types/mortgage';
-import { ALL_STATUS_ORDER, CASE_TYPE_LABELS, LTV_BANDS, MORTGAGE_AMOUNT_BANDS, PIPELINE_ORDER } from './constants';
+import {
+  ALL_STATUS_ORDER,
+  LTV_BANDS,
+  MORTGAGE_AMOUNT_BANDS,
+  PIPELINE_ORDER,
+  isSystemCaseStatus,
+  sortCaseTypeLabels,
+  toCaseTypeLabel,
+  toPipelineStage,
+} from './constants';
 import { resolvePeriodBounds, toPeriodKey } from './dateUtils';
 
 function safeDaysBetween(start: Date | null, end: Date | null): number | null {
@@ -38,6 +47,13 @@ function medianValue(values: number[]): number {
   return sorted[middle];
 }
 
+function safeAverage(values: number[]): number | null {
+  if (!values.length) {
+    return null;
+  }
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
 function toDistribution(values: Record<string, number>): DistributionBucket[] {
   const total = Object.values(values).reduce((sum, v) => sum + v, 0);
   return Object.entries(values).map(([label, count]) => ({
@@ -48,7 +64,16 @@ function toDistribution(values: Record<string, number>): DistributionBucket[] {
 }
 
 export function filterByPeriod(data: MortgageCase[], period: TimePeriod): MortgageCase[] {
-  const bounds = resolvePeriodBounds(period);
+  const latestCreatedAt = data.reduce<Date | null>((latest, item) => {
+    if (!item.createdAt) {
+      return latest;
+    }
+    if (!latest || item.createdAt.getTime() > latest.getTime()) {
+      return item.createdAt;
+    }
+    return latest;
+  }, null);
+  const bounds = resolvePeriodBounds(period, latestCreatedAt ?? undefined);
   return data.filter((item) => {
     if (!item.createdAt) {
       return false;
@@ -58,20 +83,30 @@ export function filterByPeriod(data: MortgageCase[], period: TimePeriod): Mortga
 }
 
 export function pipelineFunnel(data: MortgageCase[]): PipelineRow[] {
-  const total = data.length || 1;
-  const counts = new Map<CaseStatus, number>();
+  const counts = new Map<PipelineRow['status'], number>();
   for (const status of ALL_STATUS_ORDER) {
     counts.set(status, 0);
   }
+  let totalIncluded = 0;
   for (const row of data) {
-    counts.set(row.caseStatus, (counts.get(row.caseStatus) ?? 0) + 1);
+    const stage = toPipelineStage(row.caseStatus);
+    if (!stage) {
+      continue;
+    }
+    totalIncluded += 1;
+    counts.set(stage, (counts.get(stage) ?? 0) + 1);
   }
+  const denominator = totalIncluded || 1;
 
   return ALL_STATUS_ORDER.map((status) => ({
     status,
     count: counts.get(status) ?? 0,
-    percentage: (counts.get(status) ?? 0) / total,
+    percentage: (counts.get(status) ?? 0) / denominator,
   }));
+}
+
+function excludedSystemStateCount(data: MortgageCase[]): number {
+  return data.filter((row) => isSystemCaseStatus(row.caseStatus)).length;
 }
 
 export function ltvDistribution(data: MortgageCase[]): DistributionBucket[] {
@@ -102,7 +137,7 @@ export function mortgageAmountDistribution(data: MortgageCase[]): DistributionBu
   return toDistribution(Object.fromEntries(buckets));
 }
 
-export function monthlyVolume(data: MortgageCase[]): Array<{ month: string; count: number }> {
+export function monthlyVolume(data: MortgageCase[]): Array<{ key: string; month: string; count: number }> {
   const byMonth = new Map<string, number>();
   for (const row of data) {
     if (!row.createdAt) {
@@ -114,22 +149,90 @@ export function monthlyVolume(data: MortgageCase[]): Array<{ month: string; coun
   return [...byMonth.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([monthKey, count]) => ({
+      key: monthKey,
       month: monthKey.slice(5, 7),
       count,
     }));
 }
 
-export function caseTypeBreakdown(data: MortgageCase[]): DistributionBucket[] {
+export function monthlyCompletedVolume(data: MortgageCase[]): Array<{ key: string; month: string; count: number }> {
+  const byMonth = new Map<string, number>();
+  for (const row of data) {
+    if (!row.completionDate || toPipelineStage(row.caseStatus) !== 'COMPLETION') {
+      continue;
+    }
+    const key = format(row.completionDate, 'yyyy-MM');
+    byMonth.set(key, (byMonth.get(key) ?? 0) + 1);
+  }
+  return [...byMonth.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([monthKey, count]) => ({
+      key: monthKey,
+      month: monthKey.slice(5, 7),
+      count,
+    }));
+}
+
+export function monthlySubmissionToOfferDays(data: MortgageCase[]): Array<{ key: string; month: string; avgDays: number }> {
+  const byMonth = new Map<string, { sumDays: number; count: number }>();
+  for (const row of data) {
+    if (!row.firstSubmittedDate || !row.firstOfferDate) {
+      continue;
+    }
+    const elapsedDays = safeDaysBetween(row.firstSubmittedDate, row.firstOfferDate);
+    if (elapsedDays === null) {
+      continue;
+    }
+    const key = format(row.firstSubmittedDate, 'yyyy-MM');
+    const value = byMonth.get(key) ?? { sumDays: 0, count: 0 };
+    value.sumDays += elapsedDays;
+    value.count += 1;
+    byMonth.set(key, value);
+  }
+  return [...byMonth.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([monthKey, value]) => ({
+      key: monthKey,
+      month: monthKey.slice(5, 7),
+      avgDays: value.count ? value.sumDays / value.count : 0,
+    }));
+}
+
+export function dailyVolume(data: MortgageCase[]): Array<{ key: string; day: string; count: number }> {
+  const byDay = new Map<string, number>();
+  for (const row of data) {
+    if (!row.createdAt) {
+      continue;
+    }
+    const key = format(row.createdAt, 'yyyy-MM-dd');
+    byDay.set(key, (byDay.get(key) ?? 0) + 1);
+  }
+  return [...byDay.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, count]) => ({
+      key,
+      day: key.slice(8, 10),
+      count,
+    }));
+}
+
+export function caseTypeBreakdown(data: MortgageCase[], groupOther = true): DistributionBucket[] {
   const counts: Record<string, number> = {};
   for (const row of data) {
-    const label = CASE_TYPE_LABELS[row.caseType] ?? CASE_TYPE_LABELS.UNKNOWN;
+    const label = toCaseTypeLabel(row.caseType, groupOther);
     counts[label] = (counts[label] ?? 0) + 1;
   }
-  return toDistribution(counts);
+  const sortedLabels = sortCaseTypeLabels(Object.keys(counts));
+  const ordered = new Map(sortedLabels.map((label, index) => [label, index]));
+  return toDistribution(counts).sort((a, b) => {
+    const orderA = ordered.get(a.label) ?? Number.MAX_SAFE_INTEGER;
+    const orderB = ordered.get(b.label) ?? Number.MAX_SAFE_INTEGER;
+    return orderA - orderB || b.percentage - a.percentage || b.count - a.count || a.label.localeCompare(b.label);
+  });
 }
 
 export function lenderMarketShare(data: MortgageCase[]): Array<{ lender: string; count: number; percentage: number }> {
-  const completed = data.filter((item) => item.caseStatus === 'COMPLETE');
+  const completed = data.filter((item) => toPipelineStage(item.caseStatus) === 'COMPLETION');
   const byLender = new Map<string, number>();
   for (const row of completed) {
     byLender.set(row.lender, (byLender.get(row.lender) ?? 0) + 1);
@@ -170,7 +273,7 @@ function marketMedianSubmittedToOfferDays(data: MortgageCase[]): number {
 }
 
 function computeStalledSubmittedRate(data: MortgageCase[], marketMedianDays: number): number {
-  const submitted = data.filter((row) => row.caseStatus === 'APPLICATION_SUBMITTED');
+  const submitted = data.filter((row) => toPipelineStage(row.caseStatus) === 'APPLICATION');
   if (!submitted.length || marketMedianDays <= 0) {
     return 0;
   }
@@ -194,10 +297,11 @@ export function computeMarketStats(data: MortgageCase[]): MarketStats {
     .filter((value): value is number => value !== null && value <= 1.5 && value >= 0);
   const marketMedianDays = marketMedianSubmittedToOfferDays(data);
 
+  const systemStateCount = excludedSystemStateCount(data);
   return {
     totalCases: data.length,
     totalLoanValue: data.reduce((sum, row) => sum + (row.mortgageAmount && row.mortgageAmount > 0 ? row.mortgageAmount : 0), 0),
-    completedCases: data.filter((row) => row.caseStatus === 'COMPLETE').length,
+    completedCases: data.filter((row) => toPipelineStage(row.caseStatus) === 'COMPLETION').length,
     avgCompletionDays: avg(completionDays),
     avgLtv: avg(validLtv),
     protectionAttachRate: data.length ? data.filter((row) => row.linkedProtection).length / data.length : 0,
@@ -206,7 +310,9 @@ export function computeMarketStats(data: MortgageCase[]): MarketStats {
     resubmissionRate: computeResubmissionRate(data),
     stalledSubmittedRate: computeStalledSubmittedRate(data, marketMedianDays),
     pipeline: pipelineFunnel(data),
+    excludedSystemStateCount: systemStateCount,
     monthlyVolume: monthlyVolume(data),
+    dailyVolume: dailyVolume(data),
     caseMix: caseTypeBreakdown(data),
     marketShare: lenderMarketShare(data),
     ltvDistribution: ltvDistribution(data),
@@ -222,7 +328,7 @@ export function computeLenderStats(data: MortgageCase[], lender: string, marketS
   const daysToOffer = lenderRows
     .map((row) => safeDaysBetween(row.firstSubmittedDate, row.firstOfferDate))
     .filter((v): v is number => v !== null);
-  const completedRows = lenderRows.filter((row) => row.caseStatus === 'COMPLETE');
+  const completedRows = lenderRows.filter((row) => toPipelineStage(row.caseStatus) === 'COMPLETION');
   const validLoanRows = lenderRows.filter((row) => row.mortgageAmount !== null && row.mortgageAmount > 0);
   const validLtvRows = lenderRows.filter((row) => row.ltv !== null && row.ltv <= 1.5 && row.ltv >= 0);
 
@@ -236,14 +342,15 @@ export function computeLenderStats(data: MortgageCase[], lender: string, marketS
     avgLtv: avg(validLtvRows.map((item) => item.ltv ?? 0)),
     brokerRevenuePerCase: avg(
       lenderRows
-        .map((item) => item.totalCaseRevenue)
-        .filter((value): value is number => value !== null),
+        .map((item) => item.totalBrokerFees)
+        .filter((value): value is number => value !== null && value >= 0),
     ),
     protectionAttachRate: lenderRows.length ? lenderRows.filter((row) => row.linkedProtection).length / lenderRows.length : 0,
     avgDaysToComplete: avg(completionDays),
     resubmissionRate: computeResubmissionRate(lenderRows),
     caseMix: caseTypeBreakdown(lenderRows),
     pipeline: pipelineFunnel(lenderRows),
+    excludedSystemStateCount: excludedSystemStateCount(lenderRows),
   };
 }
 
@@ -259,7 +366,7 @@ export function computeAllLenderStats(data: MortgageCase[], marketStats: MarketS
 export function pickDefaultLender(data: MortgageCase[]): string {
   const counts = new Map<string, number>();
   for (const row of data) {
-    if (row.caseStatus !== 'COMPLETE') {
+    if (toPipelineStage(row.caseStatus) !== 'COMPLETION') {
       continue;
     }
     counts.set(row.lender, (counts.get(row.lender) ?? 0) + 1);
@@ -294,7 +401,7 @@ export function priorPeriodLabel(period: TimePeriod): string | null {
   return null;
 }
 
-export function marketConversionRates(data: PipelineRow[]): Array<{ status: string; conversion: number }> {
+export function marketConversionRates(data: PipelineRow[]): Array<{ status: PipelineStage; conversion: number }> {
   return PIPELINE_ORDER.slice(1).map((status, index) => {
     const prev = data.find((row) => row.status === PIPELINE_ORDER[index]);
     const current = data.find((row) => row.status === status);
@@ -303,5 +410,209 @@ export function marketConversionRates(data: PipelineRow[]): Array<{ status: stri
       conversion: prev && current && prev.count > 0 ? current.count / prev.count : 0,
     };
   });
+}
+
+export function computeNotProceedingRate(data: MortgageCase[]): number {
+  const includedRows = data.filter((row) => !isSystemCaseStatus(row.caseStatus));
+  if (!includedRows.length) {
+    return 0;
+  }
+  const notProceeding = includedRows.filter((row) => toPipelineStage(row.caseStatus) === 'NOT_PROCEEDING').length;
+  return notProceeding / includedRows.length;
+}
+
+export interface CaseTypePerformanceRow {
+  caseType: string;
+  volume: number;
+  completionRate: number;
+  notProceedingRate: number;
+  avgNetRevenue: number | null;
+}
+
+export interface ProductMixKpi {
+  averageTermYears: number | null;
+}
+
+export interface RegulatedCasesKpi {
+  count: number;
+  percentage: number;
+}
+
+export interface CaseCompositionRow {
+  label: 'Product transfer' | 'Consumer BTL' | 'Further advance' | 'Porting';
+  count: number;
+  percentage: number;
+}
+
+export interface ClubNetworkRow {
+  clubName: string;
+  cases: number;
+  completionRate: number;
+  totalLoanValue: number;
+}
+
+function toTermYears(row: MortgageCase): number | null {
+  if (row.term === null || row.term === undefined || row.term <= 0) {
+    return null;
+  }
+  if (row.termUnit === 'TERM_YEARS') {
+    return row.term;
+  }
+  if (row.termUnit === 'TERM_MONTHS' || row.termUnit === undefined || row.termUnit === 'UNKNOWN') {
+    return row.term / 12;
+  }
+  return null;
+}
+
+export function buildCaseTypePerformanceRows(data: MortgageCase[], groupOther = true): CaseTypePerformanceRow[] {
+  const byCaseType = new Map<string, MortgageCase[]>();
+  for (const row of data) {
+    const label = toCaseTypeLabel(row.caseType, groupOther);
+    const rows = byCaseType.get(label) ?? [];
+    rows.push(row);
+    byCaseType.set(label, rows);
+  }
+
+  const orderByLabel = new Map(sortCaseTypeLabels([...byCaseType.keys()]).map((label, index) => [label, index]));
+
+  return [...byCaseType.entries()]
+    .map(([caseType, rows]) => {
+      const completed = rows.filter((row) => toPipelineStage(row.caseStatus) === 'COMPLETION').length;
+      const includedRows = rows.filter((row) => !isSystemCaseStatus(row.caseStatus));
+      const notProceeding = includedRows.filter((row) => toPipelineStage(row.caseStatus) === 'NOT_PROCEEDING').length;
+      const revenueValues = rows
+        .map((row) => row.netCaseRevenue ?? row.totalCaseRevenue)
+        .filter((value): value is number => value !== null && value !== undefined && value >= 0);
+      return {
+        caseType,
+        volume: rows.length,
+        completionRate: rows.length ? completed / rows.length : 0,
+        notProceedingRate: includedRows.length ? notProceeding / includedRows.length : 0,
+        avgNetRevenue: safeAverage(revenueValues),
+      };
+    })
+    .sort((a, b) => {
+      const orderA = orderByLabel.get(a.caseType) ?? Number.MAX_SAFE_INTEGER;
+      const orderB = orderByLabel.get(b.caseType) ?? Number.MAX_SAFE_INTEGER;
+      return orderA - orderB || b.volume - a.volume || a.caseType.localeCompare(b.caseType);
+    });
+}
+
+export function initialRateTypeShare(data: MortgageCase[]): DistributionBucket[] {
+  const counts: Record<string, number> = {
+    Fixed: 0,
+    Tracker: 0,
+    Discount: 0,
+    Variable: 0,
+    Stepped: 0,
+  };
+  for (const row of data) {
+    if (row.initialRateType === 'fixed') {
+      counts.Fixed += 1;
+    } else if (row.initialRateType === 'tracker') {
+      counts.Tracker += 1;
+    } else if (row.initialRateType === 'discount') {
+      counts.Discount += 1;
+    } else if (row.initialRateType === 'variable') {
+      counts.Variable += 1;
+    } else if (row.initialRateType === 'stepped') {
+      counts.Stepped += 1;
+    }
+  }
+  return toDistribution(counts);
+}
+
+export function buildProductMixKpi(data: MortgageCase[]): ProductMixKpi {
+  const termValues = data
+    .map((row) => toTermYears(row))
+    .filter((value): value is number => value !== null);
+  return {
+    averageTermYears: safeAverage(termValues),
+  };
+}
+
+export function buildRegulatedCasesKpi(data: MortgageCase[]): RegulatedCasesKpi {
+  const count = data.filter((row) => row.regulated === true).length;
+  return {
+    count,
+    percentage: data.length ? count / data.length : 0,
+  };
+}
+
+export function buildCaseCompositionRows(data: MortgageCase[]): CaseCompositionRow[] {
+  const total = data.length || 1;
+  const definitions: Array<{ label: CaseCompositionRow['label']; match: (row: MortgageCase) => boolean }> = [
+    { label: 'Product transfer', match: (row) => row.pt === true },
+    { label: 'Consumer BTL', match: (row) => row.consumerBtl === true },
+    { label: 'Further advance', match: (row) => row.furtherAdvance === true },
+    { label: 'Porting', match: (row) => row.porting === true },
+  ];
+
+  return definitions.map(({ label, match }) => {
+    const count = data.filter((row) => match(row)).length;
+    return {
+      label,
+      count,
+      percentage: count / total,
+    };
+  });
+}
+
+function normaliseClubName(clubName: string | null | undefined): string {
+  if (!clubName || !clubName.trim()) {
+    return 'Blank';
+  }
+  return clubName.trim();
+}
+
+export function buildClubNetworkRows(data: MortgageCase[]): ClubNetworkRow[] {
+  const byClub = new Map<string, MortgageCase[]>();
+  for (const row of data) {
+    const clubName = normaliseClubName(row.clubName);
+    const rows = byClub.get(clubName) ?? [];
+    rows.push(row);
+    byClub.set(clubName, rows);
+  }
+
+  return [...byClub.entries()]
+    .map(([clubName, rows]) => {
+      const completedRows = rows.filter((row) => toPipelineStage(row.caseStatus) === 'COMPLETION');
+      return {
+        clubName,
+        cases: rows.length,
+        completionRate: rows.length ? completedRows.length / rows.length : 0,
+        totalLoanValue: completedRows.reduce((sum, row) => sum + Math.max(0, row.mortgageAmount ?? 0), 0),
+      };
+    })
+    .sort((a, b) => b.cases - a.cases || b.totalLoanValue - a.totalLoanValue || a.clubName.localeCompare(b.clubName));
+}
+
+export function computeConversionVelocityRanking(data: MortgageCase[], selectedLender: string): { rank: number; total: number } {
+  const lenderMap = new Map<string, MortgageCase[]>();
+  for (const row of data) {
+    const lenderRows = lenderMap.get(row.lender) ?? [];
+    lenderRows.push(row);
+    lenderMap.set(row.lender, lenderRows);
+  }
+
+  const ranked = [...lenderMap.entries()]
+    .map(([lender, rows]) => {
+      const durations = rows
+        .map((row) => safeDaysBetween(row.firstSubmittedDate, row.firstOfferDate))
+        .filter((value): value is number => value !== null);
+      return {
+        lender,
+        avgDays: avg(durations),
+        volume: rows.length,
+      };
+    })
+    .filter((row) => row.avgDays > 0 && row.volume >= 5)
+    .sort((a, b) => a.avgDays - b.avgDays);
+
+  const rankIndex = ranked.findIndex((row) => row.lender === selectedLender);
+  return {
+    rank: rankIndex >= 0 ? rankIndex + 1 : ranked.length,
+    total: ranked.length,
+  };
 }
 
