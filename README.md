@@ -83,7 +83,7 @@ Use Git clone + Git LFS:
 ```bash
 git lfs install
 git clone <repo-url>
-cd Acre-Software
+cd Acre-Customer-Solutions-Engineering-Exercise
 git lfs pull
 ```
 
