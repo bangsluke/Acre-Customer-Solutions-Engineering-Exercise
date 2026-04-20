@@ -2,10 +2,14 @@
 
 Embedded React + TypeScript dashboard for Acre's Customer Solutions Engineer challenge.
 
+<p align="center">
+  <img src="https://bangsluke-assets.netlify.app/images/projects/Acre-Dashboard.png" alt="Acre Lender Dashboard Screenshot" height="400"/>
+</p>
+
 The application supports two audiences:
 
 - Internal dashboard for Acre teams to review platform-wide performance.
-- Lender dashboard for a selected lender, benchmarked against anonymized market aggregates.
+- Lender dashboard for a selected lender, benchmarked against anonymised market aggregates.
 
 ## Table of Contents
 
@@ -18,13 +22,12 @@ The application supports two audiences:
   - [Troubleshooting](#troubleshooting)
 - [Scripts](#scripts)
 - [Solution Overview](#solution-overview)
-  - [Intial Assumptions](#intial-assumptions)
+  - [Initial Assumptions](#initial-assumptions)
   - [Audiences and dashboard split](#audiences-and-dashboard-split)
   - [Core architecture](#core-architecture)
   - [Privacy boundary](#privacy-boundary)
 - [Design Decisions and Trade-offs](#design-decisions-and-trade-offs)
   - [Why this structure](#why-this-structure)
-  - [Why this structure](#why-this-structure-1)
   - [Trade-offs](#trade-offs)
 - [Process](#process)
 - [Data Quality](#data-quality)
@@ -34,7 +37,7 @@ The application supports two audiences:
 - [Further Ideation](#further-ideation)
   - [Product and UX priorities](#product-and-ux-priorities)
   - [Potential feature extensions](#potential-feature-extensions)
-  - [Data and modeling enhancements desired](#data-and-modeling-enhancements-desired)
+  - [Data and modelling enhancements desired](#data-and-modelling-enhancements-desired)
 - [User Stories](#user-stories)
   - [Acre Internal Users](#acre-internal-users)
   - [Lender Partners](#lender-partners)
@@ -108,7 +111,7 @@ Open the preview URL shown in terminal (usually [http://localhost:4173](http://l
 
 ## Solution Overview
 
-### Intial Assumptions
+### Initial Assumptions
 
 I interpreted the task as two separate dashboards, one (a) for internal teams to understand the global activity data of lenders and the second screen (b) as representative of a client dashboard. It was assumed that clients would view (b) and not be able to see (a), and that internal acre users would view (a) and could view (b) to see specific lender data if required.
 
@@ -141,7 +144,7 @@ For the time frames, "This half" represents the last 6 months of 2025, "This qua
 Lender-facing pages show:
 
 - Selected lender metrics.
-- Anonymized market averages.
+- Anonymised market averages.
 
 No named competitor-specific lender metrics are exposed in lender views.
 
@@ -149,11 +152,9 @@ No named competitor-specific lender metrics are exposed in lender views.
 
 ### Why this structure
 
-### Why this structure
+The structure is designed to answer the highest-value questions for both audiences with minimal friction. For Acre internal users, the priority is a clear market-wide view of volume, funnel progression, and benchmark performance so they can identify platform trends and intervention points quickly. For lender users, the priority is a focused “market vs me” experience that highlights where they over- or under-index against anonymised market baselines.
 
-The structure is designed to answer the highest-value questions for both audiences with minimal friction. For Acre internal users, the priority is a clear market-wide view of volume, funnel progression, and benchmark performance so they can identify platform trends and intervention points quickly. For lender users, the priority is a focused “market vs me” experience that highlights where they over- or under-index against anonymized market baselines.
-
-I prioritized conversion velocity, pipeline progression, and comparative benchmark metrics because they are the strongest practical indicators of operational efficiency and commercial opportunity in mortgage journeys. This also keeps the dashboard decision-oriented: users can move from insight to action (for example, identifying stalled pipeline stages or underperforming segments) without needing raw-data exploration first.
+I prioritised conversion velocity, pipeline progression, and comparative benchmark metrics because they are the strongest practical indicators of operational efficiency and commercial opportunity in mortgage journeys. This also keeps the dashboard decision-oriented: users can move from insight to action (for example, identifying stalled pipeline stages or underperforming segments) without needing raw-data exploration first.
 
 From an implementation perspective, I kept the module as a React + TypeScript SPA embedded within an assumed host application and avoided unnecessary routing/auth complexity for challenge scope. That trade-off improves delivery speed and demo clarity while preserving a path to production hardening (API-backed aggregation, richer navigation, and stronger role/access controls).
 
@@ -172,7 +173,7 @@ I then wrote up my assumptions from reading the task, stripping back quite a bit
 
 I wrote some user stories for the task to help guide the development of the app, looking at the data and understanding the context to generate the stories. I then used Claude to tidy these up and best identify the user names.
 
-I ran then plan in Cursor to generate the initial code for the task, briefly reviewing the output on Thursday evening. I then slept on it and reviewed the output again on Friday morning, first committing to GitHub after some minor UI/layout improvements. I spent Friday afternoon setting up further visualisation charts to add to the dashboard.
+I ran the plan in Cursor to generate the initial code for the task, reviewing the output on Thursday evening. I then slept on it and reviewed the output again on Friday morning, first committing to GitHub after some minor UI/layout improvements. I spent Friday afternoon setting up further visualisation charts to add to the dashboard.
 
 I double checked that the dashboard values were correct and aligned with the data in the CSV file by converting the CSV into Excel formula and analysing the data using formulas. I checked the data against the dashboard design on Sunday afternoon and made some minor adjustments to the dashboard to ensure that the data was displayed correctly and optimally.
 
@@ -228,12 +229,12 @@ With additional time, user research would guide feature prioritization before im
 - With more time, I would also consider adding extra pipeline analysis, investigating more cases stuck in the pipeline at certain stages to understand why and what can be done to improve the process. For this demo, I have added a few insights to the lender dashboard for cases stalled at submitted to give a feel for the type of analysis that could be done.
 - If it was known that a lenders entire mortgage case profile was stored on Acre, we could add additional information such as how much total loan value they are committed to.
 
-### Data and modeling enhancements desired
+### Data and modelling enhancements desired
 
 - Better upstream data completeness and quality controls for key attributes. I began mocking up some data checking functionality in a local Excel file (e.g. if a case is at "PRE_RECOMMENDATION", check that the data has a mortgage value and LTV value), but considered the full implementation out of scope for this challenge.
 - Visibility of case status immediately prior to `NOT_PROCEEDING` to improve root-cause analysis. Without this, it can be difficult to understand from the data where the case was lost for further analysis.
-- Lookup enrichment for organization, advisor, and case manager to unlock user-personalized analytics.
-- Currently, the market average used on the Lender dashboard is the average of all rows of the data in the selected period. In a production app, I would use a more sophisticated approach to calculate the market average based on checked and completed data after deeper interogation of the incomplete data rows.
+- Lookup enrichment for organisation, advisor, and case manager to unlock user-personalized analytics.
+- Currently, the market average used on the Lender dashboard is the average of all rows of the data in the selected period. In a production app, I would use a more sophisticated approach to calculate the market average based on checked and completed data after deeper interrogation of the incomplete data rows.
 
 ## User Stories
 
@@ -290,7 +291,7 @@ As an **Acre Platform Analyst**, I want to see case volumes and completion rates
 As a **Lender Product Manager**, I want to see my total completed case volume, total loan value, and net revenue for a selected time period, so that I can assess our overall performance on the platform at a glance.
 
 **LP-02**
-As a **Lender Product Manager**, I want to see my average net revenue per case compared to the platform-wide average, so that I can understand whether my cases are generating above - or below-average commercial value relative to the broader market.
+As a **Lender Product Manager**, I want to see my average net revenue per case compared to the platform-wide average, so that I can understand whether my cases are generating above- or below-average commercial value relative to the broader market.
 
 **LP-03**
 As a **Lender Product Manager**, I want to see net revenue broken down by case type for my lender versus the platform average, so that I can identify which case types are most profitable for us and where we may be underperforming the market commercially.

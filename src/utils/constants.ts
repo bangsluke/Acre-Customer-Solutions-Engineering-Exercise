@@ -179,6 +179,7 @@ export const MORTGAGE_AMOUNT_BANDS = [
 
 export function getCsvUrl(): string {
   const base = import.meta.env.BASE_URL || '/';
-  return new URL('mortgage.csv', window.location.origin + base).toString();
+  const normalizedBase = base.endsWith('/') ? base : `${base}/`;
+  return `${normalizedBase}mortgage.csv`;
 }
 

@@ -139,7 +139,7 @@ function shouldRetryWithoutWorker(rows: MortgageCase[], quality: ParseQualityRep
 }
 
 export async function parseMortgageCsv(url: string, onProgress: ParseProgress): Promise<{ rows: MortgageCase[]; quality: ParseQualityReport }> {
-  const resolvedUrl = new URL(url, window.location.origin).toString();
+  const resolvedUrl = new URL(url, window.location.href).toString();
 
   const parseWithConfig = (worker: boolean): Promise<{ rows: MortgageCase[]; quality: ParseQualityReport }> => {
   const rows: MortgageCase[] = [];
