@@ -16,9 +16,10 @@ The application supports two audiences:
 - [Table of Contents](#table-of-contents)
 - [Getting Started](#getting-started)
   - [1) Install required software](#1-install-required-software)
-  - [2) Confirm project data](#2-confirm-project-data)
-  - [3) Install dependencies](#3-install-dependencies)
-  - [4) Recommended production preview](#4-recommended-production-preview)
+  - [2) Clone the repository (do not download ZIP)](#2-clone-the-repository-do-not-download-zip)
+  - [3) Confirm project data](#3-confirm-project-data)
+  - [4) Install dependencies](#4-install-dependencies)
+  - [5) Recommended production preview](#5-recommended-production-preview)
   - [Troubleshooting](#troubleshooting)
 - [Scripts](#scripts)
 - [Solution Overview](#solution-overview)
@@ -71,7 +72,22 @@ node -v
 npm -v
 ```
 
-### 2) Confirm project data
+### 2) Clone the repository (do not download ZIP)
+
+This project uses Git LFS for `public/mortgage.csv`.
+
+Do **not** use GitHub "Download ZIP", as it can produce an LFS pointer file instead of the real dataset.
+
+Use Git clone + Git LFS:
+
+```bash
+git lfs install
+git clone <repo-url>
+cd Acre-Software
+git lfs pull
+```
+
+### 3) Confirm project data
 
 Ensure this file exists:
 
@@ -79,13 +95,13 @@ Ensure this file exists:
 public/mortgage.csv
 ```
 
-### 3) Install dependencies
+### 4) Install dependencies
 
 ```bash
 npm install
 ```
 
-### 4) Recommended production preview
+### 5) Recommended production preview
 
 ```bash
 npm run build
@@ -99,7 +115,10 @@ Open the preview URL shown in terminal (usually [http://localhost:4173](http://l
 - `node` or `npm` not found: reinstall Node.js LTS and restart terminal.
 - App does not load: confirm server is running and use terminal URL.
 - Port conflict: stop the other app on that port and rerun.
-- No data visible: confirm `public/mortgage.csv` exists and filename matches exactly.
+- No data visible:
+  - confirm `public/mortgage.csv` exists and filename matches exactly.
+  - run `git lfs pull` in the repo root.
+  - make sure you cloned with Git rather than downloading the repository as a ZIP.
 
 ## Scripts
 
