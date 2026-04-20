@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DateRange, MortgageCase } from '../types/mortgage';
-import { computePipelineFunnel, computeStageDistribution } from './funnelMetrics';
+import { computePipelineFunnel, computeStageDistribution } from '../utils/funnelMetrics';
 
 const dateRange: DateRange = {
   start: new Date('2025-01-01T00:00:00Z'),

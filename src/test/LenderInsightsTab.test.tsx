@@ -1,10 +1,10 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-import type { MarketStats, MortgageCase } from '../../types/mortgage';
-import { formatCurrency, formatDays } from '../../utils/formatters';
-import { computeStalledSubmittedInsights } from '../../utils/lenderInsights';
-import { LenderInsightsTab } from './LenderInsightsTab';
+import type { MarketStats, MortgageCase } from '../types/mortgage';
+import { formatCurrency, formatDays } from '../utils/formatters';
+import { computeStalledSubmittedInsights } from '../utils/lenderInsights';
+import { LenderInsightsTab } from '../components/lender/LenderInsightsTab';
 
 const marketStats: MarketStats = {
   totalCases: 12,

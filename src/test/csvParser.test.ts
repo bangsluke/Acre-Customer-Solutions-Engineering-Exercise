@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseRow, qualityReport } from './csvParser';
+import { parseRow, qualityReport } from '../utils/csvParser';
 import type { MortgageCase } from '../types/mortgage';
 
 describe('csvParser', () => {
@@ -145,4 +145,3 @@ describe('csvParser', () => {
     expect(report.criticalFailure).toBe(true);
   });
 });
-

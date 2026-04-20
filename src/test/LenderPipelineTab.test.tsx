@@ -1,8 +1,8 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-import type { MarketStats, MortgageCase } from '../../types/mortgage';
-import { LenderPipelineTab } from './LenderPipelineTab';
+import type { MarketStats, MortgageCase } from '../types/mortgage';
+import { LenderPipelineTab } from '../components/lender/LenderPipelineTab';
 
 const marketStats: MarketStats = {
   totalCases: 10,
@@ -146,5 +146,28 @@ describe('LenderPipelineTab', () => {
     expect(within(dropOffSection).getByRole('button', { name: 'Group Other' })).toBeInTheDocument();
     expect(screen.getByText('Fee Concerns')).toBeInTheDocument();
     expect(screen.getByText('Break down fee value transparently and offer staged or lower-cost options where possible.')).toBeInTheDocument();
+  });
+
+  it('renders explicit recommendations for newly added drop-off reason keys', () => {
+    const periodData: MortgageCase[] = [
+      buildCase('np-invalid-reason', '2025-10-01', 150000, {
+        caseStatus: 'NOT_PROCEEDING',
+        notProceedingReason: 'INVALID_CANCELLATION_REASON',
+      }),
+    ];
+
+    render(
+      <LenderPipelineTab
+        periodData={periodData}
+        selectedLender="Lender A"
+        marketStats={marketStats}
+        period={{ type: 'this_year' }}
+      />,
+    );
+
+    expect(screen.getByText('Invalid Cancellation Reason')).toBeInTheDocument();
+    expect(
+      screen.getByText('Correct the cancellation reason code and update closure notes before finalising.'),
+    ).toBeInTheDocument();
   });
 });

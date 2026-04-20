@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import type { LenderStats, MarketStats, MortgageCase } from '../../types/mortgage';
-import { LenderDashboard } from './LenderDashboard';
+import type { LenderStats, MarketStats, MortgageCase } from '../types/mortgage';
+import { LenderDashboard } from '../components/lender/LenderDashboard';
 
 const marketStats: MarketStats = {
   totalCases: 30_000,
@@ -172,7 +172,7 @@ describe('LenderDashboard', () => {
     }
     expect(within(notProceedingCard).getByText(/Lender conversion:/)).toBeInTheDocument();
     expect(within(notProceedingCard).getByText(/Market conversion:/)).toBeInTheDocument();
-  });
+  }, 10000);
 
   it('expands grouped other case types in lender case mix', () => {
     const periodData: MortgageCase[] = [

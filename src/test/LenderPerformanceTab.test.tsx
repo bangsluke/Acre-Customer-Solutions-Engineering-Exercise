@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import type { MarketStats, MortgageCase } from '../../types/mortgage';
-import { LenderPerformanceTab } from './LenderPerformanceTab';
+import type { MarketStats, MortgageCase } from '../types/mortgage';
+import { LenderPerformanceTab } from '../components/lender/LenderPerformanceTab';
 
 const marketStats: MarketStats = {
   totalCases: 12,

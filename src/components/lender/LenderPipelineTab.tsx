@@ -30,13 +30,16 @@ type StalledSortField = 'caseId' | 'daysStalled' | 'caseType' | 'mortgageAmount'
 const DROP_OFF_REASON_RECOMMENDATIONS: Record<string, string> = {
   NO_RESPONSE: 'Attempt multi-channel re-contact and set a clear close-by date if no reply.',
   CLIENT_DECLINED_PRODUCT: 'Arrange a product-fit review with updated affordability and options.',
+  CLIENT_NO_LONGER_REQUIRES_PRODUCT: 'Confirm goals have changed and close with documented re-contact criteria.',
   CLIENT_OBTAINED_PRODUCT_ELSEWHERE: 'Run a quick loss review and share competitive alternatives sooner.',
   INCORRECT_CONTACT_DETAILS: 'Confirm and update contact details, then retry outreach with a named owner.',
+  DUPLICATE_CASE: 'Merge duplicate records and keep a single active case owner with linked notes.',
   NO_PRODUCT_AVAILABLE: 'Re-run criteria with broadened options and present nearest-fit alternatives quickly.',
   LENDER_DECLINED_APPLICATION: 'Review decline drivers and route to an underwriter for salvage assessment.',
   PROPERTY_NOT_FOUND: 'Reconfirm property search criteria and provide guided next-property support.',
   ADVERSE_CREDIT: 'Check adverse credit drivers and route to specialist lenders with realistic next steps.',
   FEE_CONCERNS: 'Break down fee value transparently and offer staged or lower-cost options where possible.',
+  INVALID_CANCELLATION_REASON: 'Correct the cancellation reason code and update closure notes before finalising.',
   OTHER: 'Capture missing context and assign a named owner for follow-up before closure.',
 };
 const GROUPED_OTHER_REASON_KEYS = new Set<string>([

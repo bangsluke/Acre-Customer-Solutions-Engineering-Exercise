@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import type { MortgageCase, ParseQualityReport } from '../../types/mortgage';
-import { InternalDataQualityTab } from './InternalDataQualityTab';
+import type { MortgageCase, ParseQualityReport } from '../types/mortgage';
+import { InternalDataQualityTab } from '../components/internal/InternalDataQualityTab';
 
 function buildCase(
   caseId: string,

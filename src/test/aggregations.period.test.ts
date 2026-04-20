@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { computeLenderStats, computeMarketStats, filterByPeriod } from './aggregations';
-import { fixtureRows } from '../test/fixtures';
+import { computeLenderStats, computeMarketStats, filterByPeriod } from '../utils/aggregations';
+import { fixtureRows } from './fixtures';
 
 describe('period-aware aggregations', () => {
   it('filters rows by active period', () => {
@@ -27,4 +27,3 @@ describe('period-aware aggregations', () => {
     expect(halifax.marketShare).toBeCloseTo(1, 4);
   });
 });
-

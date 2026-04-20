@@ -1,8 +1,8 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import type { MarketStats, MortgageCase } from '../../types/mortgage';
-import { computeLinearTrend } from '../../utils/trendLine';
-import { InternalDashboard } from './InternalDashboard';
+import type { MarketStats, MortgageCase } from '../types/mortgage';
+import { computeLinearTrend } from '../utils/trendLine';
+import { InternalDashboard } from '../components/internal/InternalDashboard';
 
 const stats: MarketStats = {
   totalCases: 12,
@@ -119,6 +119,14 @@ const groupedDropOffReasonRow: MortgageCase = {
   caseStatus: 'NOT_PROCEEDING',
   notProceedingReason: 'FEE_CONCERNS',
   totalCaseRevenue: 700,
+};
+
+const duplicateCaseDropOffRow: MortgageCase = {
+  ...row,
+  caseId: 'case-duplicate',
+  caseStatus: 'NOT_PROCEEDING',
+  notProceedingReason: 'DUPLICATE_CASE',
+  totalCaseRevenue: 350,
 };
 
 function getKpiCard(label: string): HTMLElement {
@@ -258,6 +266,22 @@ describe('InternalDashboard', () => {
     expect(screen.getByText('Drop-off reasons')).toBeInTheDocument();
     expect(screen.getByText('No Response')).toBeInTheDocument();
     expect(screen.getByText(/Attempt multi-channel re-contact and time-box closure if no reply\./)).toBeInTheDocument();
+  });
+
+  it('renders explicit recommendations for newly added drop-off reason keys', () => {
+    render(
+      <InternalDashboard
+        stats={stats}
+        period={{ type: 'this_year' }}
+        periodData={[row, completedRow, duplicateCaseDropOffRow]}
+        allRows={[row, completedRow, duplicateCaseDropOffRow]}
+      />,
+    );
+
+    expect(screen.getByText('Duplicate Case')).toBeInTheDocument();
+    expect(
+      screen.getByText('Merge duplicate records, keep one active owner, and close the extra case with a linked reference.'),
+    ).toBeInTheDocument();
   });
 
   it('uses broker revenue totals for drop-off revenue at risk', () => {

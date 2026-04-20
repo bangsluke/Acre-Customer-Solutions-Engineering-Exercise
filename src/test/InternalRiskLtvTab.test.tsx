@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-import type { MortgageCase } from '../../types/mortgage';
-import { InternalRiskLtvTab } from './InternalRiskLtvTab';
+import type { MortgageCase } from '../types/mortgage';
+import { InternalRiskLtvTab } from '../components/internal/InternalRiskLtvTab';
 
 function buildCase(caseId: string, lender: string, ltv: number, createdAt: string): MortgageCase {
   return {
@@ -116,5 +116,4 @@ describe('InternalRiskLtvTab', () => {
     expect(screen.getByText('Equity Release')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Group Other' })).toBeInTheDocument();
   });
-
 });

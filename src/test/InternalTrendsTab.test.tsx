@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import type { MortgageCase } from '../../types/mortgage';
-import { InternalTrendsTab } from './InternalTrendsTab';
+import type { MortgageCase } from '../types/mortgage';
+import { InternalTrendsTab } from '../components/internal/InternalTrendsTab';
 
 function buildCase(
   caseId: string,

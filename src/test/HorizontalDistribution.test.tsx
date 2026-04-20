@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { HorizontalDistribution } from './HorizontalDistribution';
+import { HorizontalDistribution } from '../components/shared/HorizontalDistribution';
 
 describe('HorizontalDistribution', () => {
   it('renders Other disclosure tooltip and toggle action', async () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MarketStats, MortgageCase } from '../types/mortgage';
-import { computeStalledSubmittedInsights, evaluateLenderInsights, evaluateLtvOpportunityGaps } from './lenderInsights';
+import { computeStalledSubmittedInsights, evaluateLenderInsights, evaluateLtvOpportunityGaps } from '../utils/lenderInsights';
 
 const marketStats: MarketStats = {
   totalCases: 4,

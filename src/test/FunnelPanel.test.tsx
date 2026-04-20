@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { DateRange, MortgageCase } from '../../types/mortgage';
-import { FunnelPanel } from './FunnelPanel';
+import type { DateRange, MortgageCase } from '../types/mortgage';
+import { FunnelPanel } from '../components/shared/FunnelPanel';
 
 const dateRange: DateRange = {
   start: new Date('2025-01-01T00:00:00Z'),

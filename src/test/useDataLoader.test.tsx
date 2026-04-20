@@ -1,6 +1,6 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { useDataLoader } from './useDataLoader';
+import { useDataLoader } from '../hooks/useDataLoader';
 
 vi.mock('../utils/csvParser', () => ({
   parseMortgageCsv: async () => ({
@@ -39,4 +39,3 @@ describe('useDataLoader', () => {
     await waitFor(() => expect(result.current.status === 'internal-ready' || result.current.status === 'all-ready').toBe(true));
   });
 });
-

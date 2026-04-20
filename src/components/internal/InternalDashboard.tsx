@@ -18,12 +18,16 @@ const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep
 const DROP_OFF_REASON_RECOMMENDATIONS: Record<string, string> = {
   NO_RESPONSE: 'Attempt multi-channel re-contact and time-box closure if no reply.',
   CLIENT_DECLINED_PRODUCT: 'Schedule a product-fit review with revised options and affordability scenarios.',
+  CLIENT_NO_LONGER_REQUIRES_PRODUCT: 'Confirm objectives have changed and close with a clear reason and re-contact trigger date.',
+  CLIENT_OBTAINED_PRODUCT_ELSEWHERE: 'Capture competitor outcome and run a short loss review to improve earlier positioning.',
   INCORRECT_CONTACT_DETAILS: 'Verify contact details through an alternate channel before case closure.',
+  DUPLICATE_CASE: 'Merge duplicate records, keep one active owner, and close the extra case with a linked reference.',
   NO_PRODUCT_AVAILABLE: 'Re-check sourcing criteria and provide alternate products that fit key requirements.',
   PROPERTY_NOT_FOUND: 'Confirm property details and coordinate with lender support to unblock valuation lookup.',
   ADVERSE_CREDIT: 'Review credit file issues and route to adverse-friendly options with a specialist broker.',
   FEE_CONCERNS: 'Share a transparent cost breakdown and discuss lower-fee structures or payment options.',
   LENDER_DECLINED_APPLICATION: 'Review decline reasons quickly and pivot to suitable lenders with revised packaging.',
+  INVALID_CANCELLATION_REASON: 'Correct the cancellation code and capture accurate closure notes before finalising the case.',
   OTHER: 'Capture detailed context and route to a manager for manual review.',
   UNKNOWN: 'Run a quick triage and add a clear reason code before final closure.',
 };

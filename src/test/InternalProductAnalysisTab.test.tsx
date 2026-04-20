@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import type { MortgageCase } from '../../types/mortgage';
-import { InternalProductAnalysisTab } from './InternalProductAnalysisTab';
+import type { MortgageCase } from '../types/mortgage';
+import { InternalProductAnalysisTab } from '../components/internal/InternalProductAnalysisTab';
 
 function buildCase(overrides: Partial<MortgageCase>): MortgageCase {
   return {

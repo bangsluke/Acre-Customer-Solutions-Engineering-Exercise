@@ -11,8 +11,8 @@ import {
   initialRateTypeShare,
   monthlySubmissionToOfferDays,
   monthlyCompletedVolume,
-} from './aggregations';
-import { fixtureRows } from '../test/fixtures';
+} from '../utils/aggregations';
+import { fixtureRows } from './fixtures';
 import type { MortgageCase } from '../types/mortgage';
 
 describe('metrics calculations', () => {
@@ -248,4 +248,3 @@ describe('metrics calculations', () => {
     ]);
   });
 });
-

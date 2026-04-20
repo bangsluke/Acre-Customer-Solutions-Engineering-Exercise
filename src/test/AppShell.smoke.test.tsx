@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { AppShell } from './AppShell';
+import { AppShell } from '../components/shell/AppShell';
 
-vi.mock('../../utils/lenderInsights', () => ({
+vi.mock('../utils/lenderInsights', () => ({
   evaluateLenderInsights: () => ({
     alerts: [],
     alertMessages: ['One alert'],
@@ -11,7 +11,7 @@ vi.mock('../../utils/lenderInsights', () => ({
   }),
 }));
 
-vi.mock('../../context/useDataContext', () => ({
+vi.mock('../context/useDataContext', () => ({
   useDataContext: () => ({
     status: 'all-ready',
     progress: 100,
@@ -96,4 +96,3 @@ describe('AppShell', () => {
     expect(screen.getByText('1 alert')).toBeInTheDocument();
   });
 });
-
