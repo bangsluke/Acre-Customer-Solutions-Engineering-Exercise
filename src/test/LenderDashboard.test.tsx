@@ -195,4 +195,36 @@ describe('LenderDashboard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Expand Other' }));
     expect(screen.getByText('Equity Release')).toBeInTheDocument();
   });
+
+  it('orders your case mix rows by lender share descending', () => {
+    const periodData: MortgageCase[] = [
+      { ...buildCase('1', 'Halifax', 900, new Date('2025-01-10'), 'LEAD'), caseType: 'REASON_FTB' },
+      { ...buildCase('2', 'Halifax', 900, new Date('2025-01-11'), 'LEAD'), caseType: 'REASON_FTB' },
+      { ...buildCase('3', 'Halifax', 900, new Date('2025-01-12'), 'LEAD'), caseType: 'REASON_FTB' },
+      { ...buildCase('4', 'Halifax', 900, new Date('2025-01-13'), 'LEAD'), caseType: 'REASON_REMORTGAGE' },
+      { ...buildCase('5', 'Halifax', 900, new Date('2025-01-14'), 'LEAD'), caseType: 'REASON_REMORTGAGE' },
+      { ...buildCase('6', 'Halifax', 900, new Date('2025-01-15'), 'LEAD'), caseType: 'REASON_HOUSE_MOVE' },
+      { ...buildCase('7', 'Other', 900, new Date('2025-01-16'), 'LEAD'), caseType: 'REASON_HOUSE_MOVE' },
+      { ...buildCase('8', 'Other', 900, new Date('2025-01-17'), 'LEAD'), caseType: 'REASON_HOUSE_MOVE' },
+    ];
+
+    render(
+      <LenderDashboard
+        selectedLender="Halifax"
+        stats={lenderStats}
+        marketStats={marketStats}
+        periodData={periodData}
+        period={{ type: 'this_year' }}
+      />,
+    );
+
+    const caseMixSection = screen.getByRole('heading', { name: 'Your case mix vs market' }).closest('section');
+    if (!caseMixSection) {
+      throw new Error('Expected case mix section');
+    }
+
+    const sectionText = caseMixSection.textContent ?? '';
+    expect(sectionText.indexOf('First-time buyer')).toBeLessThan(sectionText.indexOf('Remortgage'));
+    expect(sectionText.indexOf('Remortgage')).toBeLessThan(sectionText.indexOf('House move'));
+  });
 });

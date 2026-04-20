@@ -325,7 +325,6 @@ export function FunnelPanel({
                   </AppTooltip>
                 ))}
             </div>
-            <p className="mt-2 text-xs text-acre-muted">Stages skipped backfilled in cohort: {formatNumber(pipelineResult.stagesSkipped)}</p>
           </section>
         </div>
       )}

@@ -196,6 +196,7 @@ On Monday morning I cleaned up the repo and README.md file and committed the fin
 - Dataset covers 2025 only, so some year-over-year trend cards show no prior-period baseline.
 - The market average in lender pages uses selected-period row averages; production logic would require stricter completeness and quality gating.
 - In a production app, I would validate the data at ingestion and route missing/invalid data such as missing lender rows to a quarantine stream with reason codes and track blank-lender rate as a data quality SLI with alert thresholds.
+- For the Median Days from recommendation to submission, the value I am using is coming out as 0, as sometimes the recommendation_date is after the first_submitted_date so my definition of this needs to be reviewed with better understanding of the process.
 
 ### Pipeline stage grouping assumptions
 
@@ -341,3 +342,5 @@ npm run test
 ```
 
 Coverage areas include CSV parsing, period filtering, key metric calculations, data loading transitions, and shell-level smoke checks.
+
+In a production environment, I would also consider using a testing framework such as Jest or Playwright to help with fully testing the application through E2E tests across multiple lenders, browsers and devices and ensuring that the application is working as expected.

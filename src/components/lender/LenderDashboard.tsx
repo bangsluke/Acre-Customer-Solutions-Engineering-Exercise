@@ -167,7 +167,8 @@ export function LenderDashboard({
         marketValue: `${formatPercentage(marketShare, 1)} | (${marketCount.toLocaleString('en-GB')})`,
         marketPercentage: marketShare,
       };
-    });
+    })
+    .sort((a, b) => b.percentage - a.percentage || b.marketPercentage - a.marketPercentage || a.label.localeCompare(b.label));
   const mortgageAmountRows = [
     ...marketMortgageAmountDistribution.map((row) => row.label),
     ...lenderMortgageAmountDistribution.map((row) => row.label).filter((label) => !marketMortgageAmountMap.has(label)),
@@ -359,9 +360,6 @@ export function LenderDashboard({
               </div>
             ))}
           </div>
-          <p className="mt-3 text-xs text-acre-muted">
-            Broker revenue is proc fee paid by the lender plus broker fees charged to the client.
-          </p>
         </section>
       </div>
       <div className="mt-4 grid grid-cols-1 gap-4">

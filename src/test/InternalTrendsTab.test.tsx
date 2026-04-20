@@ -1,13 +1,14 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { MortgageCase } from '../types/mortgage';
-import { InternalTrendsTab } from '../components/internal/InternalTrendsTab';
+import { buildMonthlyTrends, InternalTrendsTab, trendNetRevenueValue } from '../components/internal/InternalTrendsTab';
 
 function buildCase(
   caseId: string,
   caseType: MortgageCase['caseType'],
   createdAt: string,
   completionDate: string,
+  overrides: Partial<MortgageCase> = {},
 ): MortgageCase {
   return {
     caseId,
@@ -31,10 +32,29 @@ function buildCase(
     grossMortgageProcFee: 1000,
     totalCaseRevenue: 1500,
     initialPayRate: 4.5,
+    ...overrides,
   };
 }
 
 describe('InternalTrendsTab', () => {
+  it('prefers net revenue and falls back to total when net is missing', () => {
+    const netPreferred = buildCase('case-net', 'REASON_FTB', '2025-01-01', '2025-02-01', {
+      totalCaseRevenue: 5000,
+      netCaseRevenue: 1200,
+    });
+    const fallbackToTotal = buildCase('case-fallback', 'REASON_FTB', '2025-02-01', '2025-03-01', {
+      totalCaseRevenue: 800,
+      netCaseRevenue: null,
+    });
+
+    expect(trendNetRevenueValue(netPreferred)).toBe(1200);
+    expect(trendNetRevenueValue(fallbackToTotal)).toBe(800);
+
+    const monthly = buildMonthlyTrends([netPreferred, fallbackToTotal]);
+    expect(monthly.find((item) => item.key === '2025-01')?.netRevenue).toBe(1200);
+    expect(monthly.find((item) => item.key === '2025-02')?.netRevenue).toBe(800);
+  });
+
   it('renders velocity trend direction KPI and keeps net revenue above case mix', () => {
     const periodData: MortgageCase[] = [
       buildCase('case-1', 'REASON_FTB', '2025-01-01', '2025-02-01'),

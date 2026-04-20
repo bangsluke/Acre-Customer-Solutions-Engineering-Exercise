@@ -59,6 +59,7 @@ const row: MortgageCase = {
   totalBrokerFees: 500,
   grossMortgageProcFee: 1000,
   totalCaseRevenue: 1500,
+  netCaseRevenue: 1500,
   initialPayRate: 4.5,
 };
 
@@ -344,8 +345,8 @@ describe('InternalDashboard', () => {
       />,
     );
 
-    expect(screen.getByText('£2,500 of revenue is at risk from 1 stalled submitted case')).toBeInTheDocument();
-    const banner = screen.getByText('£2,500 of revenue is at risk from 1 stalled submitted case');
+    expect(screen.getByText('£2,500 of revenue is at risk from 1 stalled submitted case [93 days median submitted age]')).toBeInTheDocument();
+    const banner = screen.getByText('£2,500 of revenue is at risk from 1 stalled submitted case [93 days median submitted age]');
     const dropOffHeading = screen.getByRole('heading', { name: 'Drop-off reasons' });
     expect(banner.compareDocumentPosition(dropOffHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(container).toHaveTextContent('Top not proceeding reasons with recommended follow-up actions');
@@ -380,5 +381,49 @@ describe('InternalDashboard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Expand Other' }));
     expect(screen.getByRole('button', { name: 'Group Other' })).toBeInTheDocument();
     expect(screen.getByText('Equity Release')).toBeInTheDocument();
+  });
+
+  it('sorts cases-by-type rows by case count descending', () => {
+    const houseMoveCaseA: MortgageCase = {
+      ...row,
+      caseId: 'house-move-1',
+      caseType: 'REASON_HOUSE_MOVE',
+    };
+    const houseMoveCaseB: MortgageCase = {
+      ...row,
+      caseId: 'house-move-2',
+      caseType: 'REASON_HOUSE_MOVE',
+    };
+    const remortgageCase: MortgageCase = {
+      ...row,
+      caseId: 'remortgage-1',
+      caseType: 'REASON_REMORTGAGE',
+    };
+    const remortgageCaseB: MortgageCase = {
+      ...row,
+      caseId: 'remortgage-2',
+      caseType: 'REASON_REMORTGAGE',
+    };
+
+    render(
+      <InternalDashboard
+        stats={stats}
+        period={{ type: 'this_year' }}
+        periodData={[row, houseMoveCaseA, houseMoveCaseB, remortgageCase, remortgageCaseB]}
+        allRows={[row, houseMoveCaseA, houseMoveCaseB, remortgageCase, remortgageCaseB]}
+      />,
+    );
+
+    const caseTypeSection = screen.getByRole('heading', { name: 'Cases by type' }).closest('section');
+    if (!caseTypeSection) {
+      throw new Error('Expected cases-by-type section');
+    }
+
+    const houseMove = within(caseTypeSection).getByText('House move');
+    const remortgage = within(caseTypeSection).getByText('Remortgage');
+    const firstTimeBuyer = within(caseTypeSection).getByText('First-time buyer');
+
+    expect(houseMove.compareDocumentPosition(remortgage) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(remortgage.compareDocumentPosition(firstTimeBuyer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

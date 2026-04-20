@@ -263,18 +263,20 @@ export function InternalDashboard({
   const volumeData = showDailyVolume ? dailyData : monthlyData;
   const caseMixRows = useMemo(
     () =>
-      caseTypeBreakdown(periodData, groupOtherCaseTypes).map((row) => ({
-        label: row.label,
-        value: `${formatPercentage(row.percentage, 1)} | (${formatNumber(row.count)})`,
-        percentage: row.percentage,
-        casesCount: row.count,
-      })),
+      caseTypeBreakdown(periodData, groupOtherCaseTypes)
+        .map((row) => ({
+          label: row.label,
+          value: `${formatPercentage(row.percentage, 1)} | (${formatNumber(row.count)})`,
+          percentage: row.percentage,
+          casesCount: row.count,
+        }))
+        .sort((a, b) => b.casesCount - a.casesCount || b.percentage - a.percentage || a.label.localeCompare(b.label)),
     [groupOtherCaseTypes, periodData],
   );
   const totalNetRevenue = periodData.reduce((sum, row) => sum + Math.max(0, row.totalCaseRevenue ?? 0), 0);
   const completedRows = periodData.filter((row) => row.caseStatus === 'EXCHANGE' || row.caseStatus === 'COMPLETE');
   const totalCompletedLoanValue = completedRows.reduce((sum, row) => sum + Math.max(0, row.mortgageAmount ?? 0), 0);
-  const completedRevenue = completedRows.reduce((sum, row) => sum + Math.max(0, row.totalCaseRevenue ?? 0), 0);
+  const completedRevenue = completedRows.reduce((sum, row) => sum + Math.max(0, row.netCaseRevenue ?? 0), 0);
   const averageNetRevenuePerCompletedCase = completedRows.length > 0 ? completedRevenue / completedRows.length : 0;
   const completionRate = stats.totalCases > 0 ? stats.completedCases / stats.totalCases : 0;
   const latestCreatedAt = allRows.reduce<Date | null>((latest, row) => {
@@ -299,7 +301,7 @@ export function InternalDashboard({
     previousPeriodData.length > 0
       ? previousPeriodData.reduce((sum, row) => sum + Math.max(0, row.totalCaseRevenue ?? 0), 0)
       : null;
-  const previousCompletedRevenue = previousCompletedRows.reduce((sum, row) => sum + Math.max(0, row.totalCaseRevenue ?? 0), 0);
+  const previousCompletedRevenue = previousCompletedRows.reduce((sum, row) => sum + Math.max(0, row.netCaseRevenue ?? 0), 0);
   const previousAverageNetRevenuePerCompletedCase =
     previousCompletedRows.length > 0 ? previousCompletedRevenue / previousCompletedRows.length : null;
   const previousAvgCompletionDays =
@@ -541,6 +543,8 @@ export function InternalDashboard({
           {formatCurrency(stalledRevenueAtRisk)} of revenue is at risk from {formatNumber(stalledSubmittedRows.length)} stalled submitted
           {' '}
           {stalledSubmittedRows.length === 1 ? 'case' : 'cases'}
+          {' '}
+          [{formatNumber(stallThreshold)} days median submitted age]
         </p>
       </section>
 

@@ -85,7 +85,11 @@ function monthShortLabelFromKey(key: string): string {
   return new Date(`${key}-01T00:00:00`).toLocaleString('en-GB', { month: 'short' });
 }
 
-function buildMonthlyTrends(periodData: MortgageCase[]): TrendPoint[] {
+export function trendNetRevenueValue(row: MortgageCase): number {
+  return Math.max(0, row.netCaseRevenue ?? row.totalCaseRevenue ?? 0);
+}
+
+export function buildMonthlyTrends(periodData: MortgageCase[]): TrendPoint[] {
   const buckets = new Map<string, { volume: number; completionValues: number[]; netRevenue: number }>();
 
   for (const row of periodData) {
@@ -95,7 +99,7 @@ function buildMonthlyTrends(periodData: MortgageCase[]): TrendPoint[] {
     const key = monthKey(row.createdAt);
     const bucket = buckets.get(key) ?? { volume: 0, completionValues: [], netRevenue: 0 };
     bucket.volume += 1;
-    bucket.netRevenue += Math.max(0, row.totalCaseRevenue ?? 0);
+    bucket.netRevenue += trendNetRevenueValue(row);
     if (row.firstSubmittedDate && row.completionDate) {
       const days = Math.max(
         0,
